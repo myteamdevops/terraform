@@ -9,6 +9,10 @@ DESCRIPTION
   default = "~/.ssh/id_rsa.pub"
 }
 
+variable "instance_count" {
+  default = "3"
+}
+
 variable "key_name" {
   description = "Desired name of AWS key pair"
   default = "test-user"
