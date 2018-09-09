@@ -87,7 +87,6 @@ resource "aws_elb" "web" {
 
   subnets         = ["${aws_subnet.default.id}"]
   security_groups = ["${aws_security_group.elb.id}"]
-  instances       = ["${aws_instance.web.id}"]
 
   listener {
     instance_port     = 80
@@ -102,42 +101,24 @@ resource "aws_key_pair" "auth" {
   public_key = "${file(var.public_key_path)}"
 }
 
-resource "aws_instance" "web" {
-  # The connection block tells our provisioner how to
-  # communicate with the resource (instance)
-  connection {
-    # The default username for our AMI
-    user = "ubuntu"
-    private_key = "${file("~/.ssh/id_rsa")}"
+resource "aws_launch_configuration" "web" {
+  instance_type    = "${var.instance_type}"
+  image_id         = "${lookup(var.aws_amis, var.aws_region)}"
+  name             = "web"
+  security_groups  = ["${aws_security_group.default.id}"]
+  key_name         = "${aws_key_pair.auth.id}"
+  user_data        = "${data.template_file.provision.rendered}"
+}
 
-    # The connection will use the local SSH agent for authentication.
-  }
+data "template_file" "provision" {
+  template = "${file("provision.tpl")}"
+}
 
-  instance_type = "t2.micro"
-
-  # Lookup the correct AMI based on the region
-  # we specified
-  ami = "${lookup(var.aws_amis, var.aws_region)}"
-
-  # The name of our SSH keypair we created above.
-  key_name = "${aws_key_pair.auth.id}"
-
-  # Our Security group to allow HTTP and SSH access
-  vpc_security_group_ids = ["${aws_security_group.default.id}"]
-
-  # We're going to launch into the same subnet as our ELB. In a production
-  # environment it's more common to have a separate private subnet for
-  # backend instances.
-  subnet_id = "${aws_subnet.default.id}"
-
-  # We run a remote provisioner on the instance after creating it.
-  # In this case, we just install nginx and start it. By default,
-  # this should be on port 80
-  provisioner "remote-exec" {
-    inline = [
-      "sudo apt-get -y update",
-      "sudo apt-get -y install nginx",
-      "sudo service nginx start",
-    ]
-  }
+resource "aws_autoscaling_group" "web" {
+  vpc_zone_identifier  = ["${aws_subnet.default.id}"]
+  name                 = "web-asg"
+  min_size             = "1"
+  max_size             = "3"
+  launch_configuration = "${aws_launch_configuration.web.name}"
+  load_balancers       = ["${aws_elb.web.name}"]
 }
