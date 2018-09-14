@@ -3,122 +3,36 @@ provider "aws" {
   region = "${var.aws_region}"
 }
 
-# Create a VPC to launch our instances into
-resource "aws_vpc" "default" {
-  cidr_block = "10.0.0.0/16"
+module "network" {
+  source = "network"
 }
 
-# Create an internet gateway to give our subnet access to the outside world
-resource "aws_internet_gateway" "default" {
-  vpc_id = "${aws_vpc.default.id}"
+module "security" {
+  source = "security"
+  name = "mic"
+  public_key_path = "${var.public_key_path}"
+  vpc_id = "${module.network.vpc_id}"
 }
 
-# Grant the VPC internet access on its main route table
-resource "aws_route" "internet_access" {
-  route_table_id         = "${aws_vpc.default.main_route_table_id}"
-  destination_cidr_block = "0.0.0.0/0"
-  gateway_id             = "${aws_internet_gateway.default.id}"
+module "elb" {
+  source = "elb"
+  name = "mic"
+  subnet_id = "${module.network.subnet_id}"
+  elb_sg_id = "${module.security.elb_sg_id}"
 }
 
-# Create a subnet to launch our instances into
-resource "aws_subnet" "default" {
-  vpc_id                  = "${aws_vpc.default.id}"
-  cidr_block              = "10.0.1.0/24"
-  map_public_ip_on_launch = true
+module "asg" {
+  source = "asg"
+  name = "${var.global_name}"
+  instance_type = "${var.instance_type}"
+  aws_amis = "${var.aws_amis}"
+  elb_name = "${module.elb.elb_name}"
+  subnet_id = "${module.network.subnet_id}"
+  aws_region = "${var.aws_region}"
+  public_key_path = "${var.public_key_path}"
+  sg_id = "${module.security.ec2_sg_id}"
 }
 
-# A security group for the ELB so it is accessible via the web
-resource "aws_security_group" "elb" {
-  name        = "terraform_example_elb"
-  description = "Used in the terraform"
-  vpc_id      = "${aws_vpc.default.id}"
-
-  # HTTP access from anywhere
-  ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  # outbound internet access
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
-
-# Our default security group to access
-# the instances over SSH and HTTP
-resource "aws_security_group" "default" {
-  name        = "terraform_example"
-  description = "Used in the terraform"
-  vpc_id      = "${aws_vpc.default.id}"
-
-  # SSH access from anywhere
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  # HTTP access from the VPC
-  ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["10.0.0.0/16"]
-  }
-
-  # outbound internet access
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
-
-resource "aws_elb" "web" {
-  name = "terraform-example-elb"
-
-  subnets         = ["${aws_subnet.default.id}"]
-  security_groups = ["${aws_security_group.elb.id}"]
-
-  listener {
-    instance_port     = 80
-    instance_protocol = "http"
-    lb_port           = 80
-    lb_protocol       = "http"
-  }
-}
-
-resource "aws_key_pair" "auth" {
-  key_name   = "${var.key_name}"
-  public_key = "${file(var.public_key_path)}"
-}
-
-resource "aws_launch_configuration" "web" {
-  instance_type    = "${var.instance_type}"
-  image_id         = "${lookup(var.aws_amis, var.aws_region)}"
-  name             = "web"
-  security_groups  = ["${aws_security_group.default.id}"]
-  key_name         = "${aws_key_pair.auth.id}"
-  user_data        = "${data.template_file.provision.rendered}"
-}
-
-data "template_file" "provision" {
-  template = "${file("provision.tpl")}"
-}
-
-resource "aws_autoscaling_group" "web" {
-  vpc_zone_identifier  = ["${aws_subnet.default.id}"]
-  name                 = "web-asg"
-  min_size             = "1"
-  max_size             = "3"
-  launch_configuration = "${aws_launch_configuration.web.name}"
-  load_balancers       = ["${aws_elb.web.name}"]
+output "elb_address" {
+  value = "${module.elb.address}"
 }

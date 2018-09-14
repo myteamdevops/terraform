@@ -1,3 +1,7 @@
+variable "global_name" {
+  default = "mic"
+}
+
 variable "public_key_path" {
   description = <<DESCRIPTION
 Path to the SSH public key to be used for authentication.
