@@ -1,5 +1,5 @@
 resource "aws_key_pair" "auth" {
-  key_name   = "key-${var.name}"
+  key_name   = "key-${var.role}"
   public_key = "${file(var.public_key_path)}"
 }
 
@@ -23,4 +23,11 @@ resource "aws_autoscaling_group" "web" {
   max_size             = "3"
   launch_configuration = "${aws_launch_configuration.web.name}"
   load_balancers       = ["${var.elb_name}"]
+  tags = [
+    {
+      key                 = "role"
+      value               = "${var.role}"
+      propagate_at_launch = true
+    }
+  ]
 }

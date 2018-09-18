@@ -1,5 +1,5 @@
-variable "global_name" {
-  default = "mic"
+variable "role" {
+  default = "mic-nginx"
 }
 
 variable "public_key_path" {

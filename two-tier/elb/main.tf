@@ -1,5 +1,5 @@
 resource "aws_elb" "web" {
-  name = "elb-${var.name}"
+  name = "elb-${var.role}"
 
   subnets         = ["${var.subnet_id}"]
   security_groups = ["${var.elb_sg_id}"]

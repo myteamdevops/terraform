@@ -1,4 +1,4 @@
-variable "name" {}
+variable "role" {}
 variable "instance_type" {}
 variable "aws_amis" { type = "map"}
 variable "elb_name" {}

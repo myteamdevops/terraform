@@ -9,21 +9,21 @@ module "network" {
 
 module "security" {
   source = "security"
-  name = "mic"
+  role = "${var.role}"
   public_key_path = "${var.public_key_path}"
   vpc_id = "${module.network.vpc_id}"
 }
 
 module "elb" {
   source = "elb"
-  name = "mic"
+  role = "${var.role}"
   subnet_id = "${module.network.subnet_id}"
   elb_sg_id = "${module.security.elb_sg_id}"
 }
 
 module "asg" {
   source = "asg"
-  name = "${var.global_name}"
+  role = "${var.role}"
   instance_type = "${var.instance_type}"
   aws_amis = "${var.aws_amis}"
   elb_name = "${module.elb.elb_name}"

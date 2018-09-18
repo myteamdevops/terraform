@@ -1,6 +1,6 @@
 # A security group for the ELB so it is accessible via the web
 resource "aws_security_group" "elb" {
-  name        = "elb-sg-${var.name}"
+  name        = "elb-sg-${var.role}"
   description = "Used in the terraform"
   vpc_id      = "${var.vpc_id}"
 
@@ -24,7 +24,7 @@ resource "aws_security_group" "elb" {
 # Our default security group to access
 # the instances over SSH and HTTP
 resource "aws_security_group" "default" {
-  name        = "ec2-sg-${var.name}"
+  name        = "ec2-sg-${var.role}"
   description = "Used in the terraform"
   vpc_id      = "${var.vpc_id}"
 
